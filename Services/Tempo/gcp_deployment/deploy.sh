@@ -39,7 +39,7 @@ read -s DB_PASS
 echo -n "$DB_PASS" | gcloud secrets create db-password --data-file=-
 
 # Grant access to Cloud Build service account
-CLOUDBUILD_SA="$PROJECT_ID@cloudbuild.gserviceaccount.com"
+CLOUDBUILD_SA="336045066613@cloudbuild.gserviceaccount.com"
 gcloud secrets add-iam-policy-binding earthdata-username \
     --member="serviceAccount:$CLOUDBUILD_SA" \
     --role="roles/secretmanager.secretAccessor"
