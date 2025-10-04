@@ -8,29 +8,28 @@ This directory contains the GCP deployment configuration for the TEMPO NO2 to AQ
 - **Endpoint**: Cloud Run service providing API to retrieve latest AQI data.
 - **Storage**: Cloud SQL PostgreSQL for persistent storage, Memorystore Redis for caching.
 
+## Security Note
+
+Sensitive credentials (Earthdata login, database passwords) are now stored securely in GCP Secret Manager and are not committed to the repository. The deployment script automatically creates and manages these secrets.
+
 ## Setup Instructions
 
 1. **Prerequisites**:
-   - GCP Project "SkyAware" set up
-   - Earthdata login credentials
+   - GCP Project "SkyAware" set up with billing enabled
    - gcloud CLI installed and authenticated
 
-2. **Update deploy.sh**:
-   - Replace Earthdata credentials (already done)
-   - Service account is automatically created and configured
-
-3. **Run deployment**:
+2. **Run deployment**:
 
    ```bash
    chmod +x deploy.sh
    ./deploy.sh
    ```
 
-4. **Initialize database schema**:
+3. **Initialize database schema**:
    - Connect to Cloud SQL instance
    - Run the SQL in `schema.sql`
 
-5. **Update Cloud Scheduler**:
+4. **Update Cloud Scheduler**:
    - Get the Cloud Run URL for the pipeline service
    - Update the scheduler job with the correct URL
 

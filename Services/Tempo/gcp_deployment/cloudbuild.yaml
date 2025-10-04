@@ -1,4 +1,14 @@
 steps:
+  # Retrieve secrets from Secret Manager
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud secrets versions access latest --secret=earthdata-username > /workspace/earthdata_username.txt
+        gcloud secrets versions access latest --secret=earthdata-password > /workspace/earthdata_password.txt
+        gcloud secrets versions access latest --secret=db-password > /workspace/db_password.txt
+
   # Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'gcr.io/$PROJECT_ID/tempo-pipeline:$COMMIT_SHA', '.']
@@ -20,7 +30,7 @@ steps:
       - 'us-central1'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'EARTHDATA_USERNAME=${_EARTHDATA_USERNAME},EARTHDATA_PASSWORD=${_EARTHDATA_PASSWORD},DB_HOST=${_DB_HOST},DB_PORT=${_DB_PORT},DB_USER=${_DB_USER},DB_PASS=${_DB_PASS},DB_NAME=${_DB_NAME},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT},REDIS_PASSWORD=${_REDIS_PASSWORD}'
+      - 'EARTHDATA_USERNAME=$(cat /workspace/earthdata_username.txt),EARTHDATA_PASSWORD=$(cat /workspace/earthdata_password.txt),DB_HOST=${_DB_HOST},DB_PORT=${_DB_PORT},DB_USER=${_DB_USER},DB_PASS=$(cat /workspace/db_password.txt),DB_NAME=${_DB_NAME},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT}'
 
   # Deploy endpoint to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -35,7 +45,7 @@ steps:
       - 'us-central1'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'DB_HOST=${_DB_HOST},DB_PORT=${_DB_PORT},DB_USER=${_DB_USER},DB_PASS=${_DB_PASS},DB_NAME=${_DB_NAME},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT},REDIS_PASSWORD=${_REDIS_PASSWORD}'
+      - 'DB_HOST=${_DB_HOST},DB_PORT=${_DB_PORT},DB_USER=${_DB_USER},DB_PASS=$(cat /workspace/db_password.txt),DB_NAME=${_DB_NAME},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT}'
       - '--command'
       - 'gunicorn'
       - '--bind'
