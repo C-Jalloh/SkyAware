@@ -16,8 +16,8 @@ This directory contains the GCP deployment configuration for the TEMPO NO2 to AQ
    - gcloud CLI installed and authenticated
 
 2. **Update deploy.sh**:
-   - Replace Earthdata credentials
-   - Set service account email for Cloud Scheduler
+   - Replace Earthdata credentials (already done)
+   - Service account is automatically created and configured
 
 3. **Run deployment**:
 
