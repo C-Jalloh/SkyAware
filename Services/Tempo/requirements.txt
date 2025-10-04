@@ -1,0 +1,7 @@
+numpy
+xarray
+matplotlib
+cartopy
+harmony-py
+pandas
+

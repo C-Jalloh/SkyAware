@@ -1,0 +1,11 @@
+numpy
+xarray
+matplotlib
+cartopy
+harmony-py
+pandas
+redis
+psycopg2-binary
+pg8000
+flask
+gunicorn
