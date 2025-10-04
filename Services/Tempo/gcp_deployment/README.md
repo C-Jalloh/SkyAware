@@ -18,12 +18,13 @@ Sensitive credentials (Earthdata login, database passwords) are now stored secur
    - GCP Project "SkyAware" set up with billing enabled
    - gcloud CLI installed and authenticated
 
-2. **Run deployment**:
-
-   ```bash
-   chmod +x deploy.sh
-   ./deploy.sh
-   ```
+2. **Manual Deployment Steps**:
+   - Enable required APIs: Cloud Run, Cloud Build, Cloud SQL, Memorystore, Secret Manager
+   - Create secrets in Secret Manager for Earthdata credentials and DB password
+   - Create Cloud SQL PostgreSQL instance and database
+   - Create Memorystore Redis instance
+   - Build and deploy using Cloud Build with appropriate substitutions
+   - Set up Cloud Scheduler for hourly runs
 
 3. **Initialize database schema**:
    - Connect to Cloud SQL instance
