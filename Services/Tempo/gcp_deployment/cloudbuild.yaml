@@ -55,9 +55,11 @@ steps:
       - '--region'
       - 'us-central1'
       - '--memory'
-      - '4Gi'
+      - '16Gi'
+      - '--cpu'
+      - '4'
       - '--set-env-vars'
-      - 'DB_HOST=${_DB_HOST},DB_PORT=${_DB_PORT},DB_USER=${_DB_USER},DB_PASS=Tempo_P@ss2443,DB_NAME=${_DB_NAME},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT},RUN_PIPELINE=true'
+      - 'DB_HOST=${_DB_HOST},DB_PORT=${_DB_PORT},DB_USER=${_DB_USER},DB_PASS=${_DB_PASS},DB_NAME=${_DB_NAME},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT},RUN_PIPELINE=true'
       - '--command'
       - './start.sh'
 
