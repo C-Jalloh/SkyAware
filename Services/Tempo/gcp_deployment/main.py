@@ -205,9 +205,14 @@ def extract_data_points(key_data, aqi_grid, chunk_size=5000):
     processed_data = []
     timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
 
+    # Handle coordinates - TEMPO lat/lon are already 2D arrays matching data dimensions
+    # No meshgrid needed, just use them directly
+    lat_grid = lat_data.values
+    lon_grid = lon_data.values
+
     # Flatten arrays for easier processing
-    lat_flat = lat_data.values.flatten()
-    lon_flat = lon_data.values.flatten()
+    lat_flat = lat_grid.flatten()
+    lon_flat = lon_grid.flatten()
     aqi_flat = aqi_grid.flatten()
     no2_flat = no2_data.values.flatten()
     valid_flat = valid_mask.flatten()
@@ -273,8 +278,10 @@ def create_geojson_from_tempo(key_data, aqi_grid, chunk_size=1000):
     features_added = 0
     chunk_count = 0
 
-    # Create coordinate grids that match the data dimensions
-    lon_grid, lat_grid = np.meshgrid(lon_data.values, lat_data.values)
+    # Handle coordinates - TEMPO lat/lon are already 2D arrays matching data dimensions
+    # No meshgrid needed, just use them directly
+    lat_grid = lat_data.values
+    lon_grid = lon_data.values
 
     # Flatten coordinates and data for easier chunking
     lat_flat = lat_grid.flatten()
