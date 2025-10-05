@@ -413,6 +413,37 @@ def create_geojson_from_tempo(key_data, aqi_grid, chunk_size=1000):
 
     return geojson
 
+def cache_latest_aqi_data(data_points, timestamp):
+    """Cache the latest AQI data in Redis for fast API access"""
+    try:
+        import redis
+        redis_client = redis.Redis(
+            host=os.getenv("REDIS_HOST"),
+            port=int(os.getenv("REDIS_PORT", 6379)),
+            password=os.getenv("REDIS_PASSWORD"),
+            socket_connect_timeout=5,
+            socket_timeout=5
+        )
+        
+        # Create a simplified cache structure for fast access
+        cache_data = {
+            'timestamp': timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp),
+            'total_points': len(data_points),
+            'data_points': data_points[:10000]  # Cache first 10k points for API
+        }
+        
+        # Store with 2 hour expiration (data updates hourly)
+        redis_client.setex(
+            'latest_aqi_data',
+            7200,  # 2 hours in seconds
+            json.dumps(cache_data)
+        )
+        print(f"✅ Cached {len(data_points)} AQI points in Redis (10k available for API)")
+        return True
+    except Exception as e:
+        print(f"⚠️  Redis caching failed: {e}")
+        return False
+
 def process_tempo_data():
     """Main pipeline function - downloads and processes real TEMPO data"""
     print("Starting TEMPO data processing pipeline...")
@@ -484,6 +515,11 @@ def process_tempo_data():
         cursor.close()
         conn.close()
         print(f"✅ Successfully stored {len(processed_data):,} data points in PostgreSQL")
+        
+        # Cache the latest data in Redis for fast API access
+        print("📦 Caching data in Redis for fast API access...")
+        if processed_data:
+            cache_latest_aqi_data(processed_data, key_data['timestamp'])
         
         # Create GeoJSON (optional - can be skipped if memory constrained)
         print("Creating GeoJSON representation...")

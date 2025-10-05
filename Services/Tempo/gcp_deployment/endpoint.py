@@ -47,20 +47,45 @@ def get_latest_aqi():
     lat = request.args.get('lat', type=float)
     lon = request.args.get('lon', type=float)
     radius = request.args.get('radius', default=50, type=float)  # Default 50km radius
+    limit = request.args.get('limit', default=100, type=int)  # Limit results
 
+    # Try Redis cache first (much faster!)
     try:
         redis_client = get_redis_client()
-        cache_key = f"latest_aqi_{lat}_{lon}_{radius}" if lat and lon else "latest_aqi_v2"
-        # Skip cache for general queries to force database hit
-        if lat and lon:
-            cached_data = redis_client.get(cache_key)
-            if cached_data:
-                print("Returning cached data")
-                return jsonify(json.loads(cached_data))
+        cached_data = redis_client.get('latest_aqi_data')
+        
+        if cached_data:
+            print("✅ Serving from Redis cache (FAST)")
+            cache_obj = json.loads(cached_data)
+            data_points = cache_obj['data_points']
+            
+            # Filter by location if requested
+            if lat is not None and lon is not None:
+                filtered_points = []
+                for point in data_points:
+                    if 'latitude' in point and 'longitude' in point:
+                        dist = haversine_distance(lat, lon, point['latitude'], point['longitude'])
+                        if dist <= radius:
+                            point['distance_km'] = round(dist, 2)
+                            filtered_points.append(point)
+                
+                filtered_points.sort(key=lambda x: x.get('distance_km', float('inf')))
+                data_points = filtered_points[:limit]
+            else:
+                data_points = data_points[:limit]
+            
+            return jsonify({
+                'source': 'redis_cache',
+                'timestamp': cache_obj['timestamp'],
+                'total_available': cache_obj['total_points'],
+                'returned': len(data_points),
+                'data': data_points
+            })
     except Exception as e:
-        print(f"Redis connection failed, falling back to database: {e}")
+        print(f"⚠️  Redis cache miss or error: {e}")
 
-    # Fallback to DB
+    # Fallback to DB (slower)
+    print("⚠️  Falling back to database (SLOW)")
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -70,6 +95,7 @@ def get_latest_aqi():
             cursor.execute("""
                 SELECT data FROM tempo_aqi
                 ORDER BY timestamp DESC
+                LIMIT 1
             """)
 
             results = cursor.fetchall()
@@ -99,12 +125,10 @@ def get_latest_aqi():
                                     continue
 
                 if closest_data:
-                    # Cache the result
-                    try:
-                        redis_client.set(cache_key, json.dumps(closest_data), ex=1800)  # Cache for 30 minutes
-                    except:
-                        pass
-                    return jsonify(closest_data)
+                    return jsonify({
+                        'source': 'database',
+                        'data': closest_data
+                    })
                 else:
                     return jsonify({"error": f"No data found within {radius}km of specified location"}), 404
             else:
@@ -121,14 +145,12 @@ def get_latest_aqi():
                 data_array = result[0]
                 print(f"Retrieved data_array type: {type(data_array)}, length: {len(data_array) if isinstance(data_array, list) else 'N/A'}")
                 if isinstance(data_array, list) and len(data_array) > 0:
-                    data = data_array[0]  # Return first location
-                    print(f"Returning first location: {data.get('location')}")
-                    # Cache the result
-                    try:
-                        redis_client.set(cache_key, json.dumps(data), ex=1800)  # Cache for 30 minutes
-                    except:
-                        pass
-                    return jsonify(data)
+                    return jsonify({
+                        'source': 'database',
+                        'total': len(data_array),
+                        'returned': min(limit, len(data_array)),
+                        'data': data_array[:limit]
+                    })
                 else:
                     return jsonify({"error": "No data available"}), 404
             else:
