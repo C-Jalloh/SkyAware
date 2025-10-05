@@ -9,3 +9,4 @@ psycopg2-binary
 pg8000
 flask
 gunicorn
+netcdf4

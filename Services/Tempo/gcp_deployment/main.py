@@ -69,8 +69,13 @@ def download_tempo_data():
 
     return results[0].result()  # Return path to downloaded file
 
-def extract_key_tempo_data(datatree):
-    """Extract only the data important for SkyAware AQI processing"""
+def extract_key_tempo_data(datatree, region_filter=None):
+    """Extract only the data important for SkyAware AQI processing
+    
+    Args:
+        datatree: TEMPO data tree
+        region_filter: Optional dict with 'lat_min', 'lat_max', 'lon_min', 'lon_max' to filter by region
+    """
     no2_concentration = datatree["product/vertical_column_troposphere"].isel(time=0)
     quality_flag = datatree["product/main_data_quality_flag"].isel(time=0)
     longitude = datatree.longitude
@@ -80,6 +85,51 @@ def extract_key_tempo_data(datatree):
     surface_pressure = datatree["support_data/surface_pressure"].isel(time=0)
     terrain_height = datatree["support_data/terrain_height"].isel(time=0)
     pbl_height = datatree["support_data/pbl_height"].isel(time=0)
+
+    # Apply geographic filter if specified
+    if region_filter:
+        print(f"Applying geographic filter: {region_filter}")
+        
+        # Create boolean masks for lat/lon ranges
+        lat_mask = (latitude >= region_filter['lat_min']) & (latitude <= region_filter['lat_max'])
+        lon_mask = (longitude >= region_filter['lon_min']) & (longitude <= region_filter['lon_max'])
+        
+        # Get indices that match the filter
+        lat_indices = np.where(lat_mask)[0]
+        lon_indices = np.where(lon_mask)[0]
+        
+        if len(lat_indices) > 0 and len(lon_indices) > 0:
+            # Slice data to region
+            no2_concentration = no2_concentration.isel(
+                lat=slice(lat_indices[0], lat_indices[-1] + 1),
+                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+            )
+            quality_flag = quality_flag.isel(
+                lat=slice(lat_indices[0], lat_indices[-1] + 1),
+                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+            )
+            uncertainty = uncertainty.isel(
+                lat=slice(lat_indices[0], lat_indices[-1] + 1),
+                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+            )
+            surface_pressure = surface_pressure.isel(
+                lat=slice(lat_indices[0], lat_indices[-1] + 1),
+                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+            )
+            terrain_height = terrain_height.isel(
+                lat=slice(lat_indices[0], lat_indices[-1] + 1),
+                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+            )
+            pbl_height = pbl_height.isel(
+                lat=slice(lat_indices[0], lat_indices[-1] + 1),
+                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+            )
+            latitude = latitude.isel(lat=slice(lat_indices[0], lat_indices[-1] + 1))
+            longitude = longitude.isel(lon=slice(lon_indices[0], lon_indices[-1] + 1))
+            
+            print(f"✅ Filtered to {len(latitude)} x {len(longitude)} grid points")
+        else:
+            print("⚠️  Warning: No data points in specified region")
 
     return {
         'no2_concentration': no2_concentration,
@@ -187,8 +237,16 @@ def get_aqi_category(aqi_value):
     else:
         return "Hazardous", "#7E0023"
 
-def extract_data_points(key_data, aqi_grid, chunk_size=5000):
-    """Extract data points from TEMPO arrays - Memory efficient chunked processing"""
+def extract_data_points(key_data, aqi_grid, chunk_size=5000, progressive_storage=False, db_conn=None):
+    """Extract data points from TEMPO arrays - Memory efficient chunked processing
+    
+    Args:
+        key_data: Dictionary with TEMPO data arrays
+        aqi_grid: Calculated AQI values
+        chunk_size: Number of points to process per chunk
+        progressive_storage: If True, stores data to DB incrementally
+        db_conn: Database connection for progressive storage
+    """
     print("Extracting data points from TEMPO arrays (chunked processing)...")
 
     lat_data = key_data['latitude']
@@ -218,11 +276,18 @@ def extract_data_points(key_data, aqi_grid, chunk_size=5000):
 
     # Process only valid points in chunks
     valid_indices = np.where(valid_flat)[0]
+    
+    # For progressive storage
+    total_stored = 0
+    cursor = None
+    if progressive_storage and db_conn:
+        cursor = db_conn.cursor()
 
     for start_idx in range(0, len(valid_indices), chunk_size):
         end_idx = min(start_idx + chunk_size, len(valid_indices))
         chunk_indices = valid_indices[start_idx:end_idx]
-
+        
+        chunk_data = []
         for idx in chunk_indices:
             lat = float(lat_flat[idx])
             lon = float(lon_flat[idx])
@@ -242,9 +307,32 @@ def extract_data_points(key_data, aqi_grid, chunk_size=5000):
                 'category': category
             }
 
-            processed_data.append(data_point)
+            chunk_data.append(data_point)
+        
+        # Store chunk progressively if enabled
+        if progressive_storage and cursor:
+            try:
+                # Insert or update this chunk
+                cursor.execute("""
+                    INSERT INTO tempo_aqi (timestamp, data)
+                    VALUES (%s, %s)
+                    ON CONFLICT (timestamp) DO UPDATE SET
+                        data = tempo_aqi.data || EXCLUDED.data
+                """, (timestamp, Json(chunk_data)))
+                db_conn.commit()
+                total_stored += len(chunk_data)
+                print(f"  💾 Stored chunk: {total_stored:,} of {total_valid:,} points ({100*total_stored/total_valid:.1f}%)")
+            except Exception as e:
+                print(f"  ⚠️  Warning: Failed to store chunk: {e}")
+        
+        processed_data.extend(chunk_data)
+
+    if cursor:
+        cursor.close()
 
     print(f"✅ Data extraction complete! Processed {len(processed_data):,} points")
+    if progressive_storage:
+        print(f"✅ Progressive storage: Stored {total_stored:,} points to database")
     return processed_data
 
 def create_geojson_from_tempo(key_data, aqi_grid, chunk_size=1000):
@@ -336,27 +424,26 @@ def process_tempo_data():
 
         # Load and process the data
         datatree = xr.open_datatree(tempo_file)
-        key_data = extract_key_tempo_data(datatree)
+        
+        # Define North America region filter to reduce dataset size
+        north_america_filter = {
+            'lat_min': 24.0,   # Southern US border
+            'lat_max': 50.0,   # Northern US/Canada border
+            'lon_min': -125.0, # West coast
+            'lon_max': -65.0   # East coast
+        }
+        print(f"🌎 Filtering data to North America region: {north_america_filter}")
+        
+        key_data = extract_key_tempo_data(datatree, region_filter=north_america_filter)
 
         # Convert to AQI
         aqi_data = calculate_aqi_from_tempo(key_data)
 
-        # Create GeoJSON
-        geojson_data = create_geojson_from_tempo(key_data, aqi_data)
-
-        # Extract data points for database storage (memory efficient)
-        processed_data = extract_data_points(key_data, aqi_data)
-
-        if not processed_data:
-            raise ValueError("No valid data points could be processed from TEMPO data")
-
-        print(f"Successfully processed {len(processed_data):,} data points from TEMPO")
-
         # Get timestamp for database storage
         timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
 
-        # Store in database
-        print("Storing data in PostgreSQL...")
+        # Setup database connection for progressive storage
+        print("Setting up database connection...")
         conn = get_db_connection()
         cursor = conn.cursor()
 
@@ -369,19 +456,42 @@ def process_tempo_data():
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         """)
-
-        # Insert data
-        cursor.execute("""
-            INSERT INTO tempo_aqi (timestamp, data)
-            VALUES (%s, %s)
-            ON CONFLICT (timestamp) DO UPDATE SET
-                data = EXCLUDED.data
-        """, (timestamp, Json(processed_data)))
-
         conn.commit()
+
+        # Extract data points with progressive storage (stores data in chunks as it processes)
+        print("🔄 Processing data with progressive storage enabled...")
+        processed_data = extract_data_points(key_data, aqi_data, chunk_size=5000, 
+                                            progressive_storage=True, db_conn=conn)
+
+        if not processed_data:
+            raise ValueError("No valid data points could be processed from TEMPO data")
+
+        print(f"Successfully processed {len(processed_data):,} data points from TEMPO")
+
+        # Final verification - ensure all data is in database
+        cursor.execute("SELECT COUNT(*) FROM tempo_aqi WHERE timestamp = %s", (timestamp,))
+        db_count = cursor.fetchone()[0]
+        if db_count == 0:
+            print("⚠️  No data found in progressive storage, inserting all at once...")
+            cursor.execute("""
+                INSERT INTO tempo_aqi (timestamp, data)
+                VALUES (%s, %s)
+                ON CONFLICT (timestamp) DO UPDATE SET
+                    data = EXCLUDED.data
+            """, (timestamp, Json(processed_data)))
+            conn.commit()
+        
         cursor.close()
         conn.close()
         print(f"✅ Successfully stored {len(processed_data):,} data points in PostgreSQL")
+        
+        # Create GeoJSON (optional - can be skipped if memory constrained)
+        print("Creating GeoJSON representation...")
+        try:
+            geojson_data = create_geojson_from_tempo(key_data, aqi_data)
+            print("✅ GeoJSON created successfully")
+        except Exception as e:
+            print(f"⚠️  Skipping GeoJSON creation due to memory constraints: {e}")
 
         # Cache latest data in Redis
         print("Caching latest data in Redis...")

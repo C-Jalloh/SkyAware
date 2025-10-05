@@ -19,9 +19,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY main.py .
 COPY endpoint.py .
+COPY start.sh .
+COPY earthdata_username.txt .
+COPY earthdata_password.txt .
+
+# Make startup script executable
+RUN chmod +x start.sh
 
 # Expose port for endpoint
-EXPOSE 8080
+EXPOSE 4040
 
-# Default command runs the pipeline
-CMD ["python", "main.py"]
+# Default command runs the Flask API with gunicorn
+CMD ["./start.sh"]

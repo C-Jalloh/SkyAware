@@ -7,9 +7,9 @@ Original file is located at
     https://colab.research.google.com/drive/1nPLfbPk3oJWiU0y0WgeGLlHiU8_Lb8Bf
 """
 
-!pip install numpy xarray cartopy matplotlib harmony-py
-!apt-get install libproj-dev proj-data proj-bin libgeos-dev
-!pip install cartopy
+# !pip install numpy xarray cartopy matplotlib harmony-py
+# !apt-get install libproj-dev proj-data proj-bin libgeos-dev
+# !pip install cartopy
 
 # Load packages into current runtime
 import datetime as dt

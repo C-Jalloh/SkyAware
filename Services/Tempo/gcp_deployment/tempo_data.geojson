@@ -1,0 +1,135 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "location": "New York",
+        "aqi": 42.5,
+        "no2_concentration": 4.25,
+        "category": "Good"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-74.0060, 40.7128]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "location": "Los Angeles",
+        "aqi": 38.2,
+        "no2_concentration": 3.82,
+        "category": "Good"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-118.2437, 34.0522]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "location": "Chicago",
+        "aqi": 55.7,
+        "no2_concentration": 5.57,
+        "category": "Moderate"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-87.6298, 41.8781]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "location": "Houston",
+        "aqi": 63.3,
+        "no2_concentration": 6.33,
+        "category": "Moderate"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-95.3698, 29.7604]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "location": "Phoenix",
+        "aqi": 37.3,
+        "no2_concentration": 3.73,
+        "category": "Good"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-112.0740, 33.4484]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "location": "Philadelphia",
+        "aqi": 48.9,
+        "no2_concentration": 4.89,
+        "category": "Good"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-75.1652, 39.9526]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "location": "San Antonio",
+        "aqi": 41.8,
+        "no2_concentration": 4.18,
+        "category": "Good"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-98.4936, 29.4241]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "location": "San Diego",
+        "aqi": 35.6,
+        "no2_concentration": 3.56,
+        "category": "Good"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-117.1611, 32.7157]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "location": "Dallas",
+        "aqi": 52.4,
+        "no2_concentration": 5.24,
+        "category": "Moderate"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-96.7970, 32.7767]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "location": "San Jose",
+        "aqi": 44.7,
+        "no2_concentration": 4.47,
+        "category": "Good"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-121.8863, 37.3382]
+      }
+    }
+  ]
+}

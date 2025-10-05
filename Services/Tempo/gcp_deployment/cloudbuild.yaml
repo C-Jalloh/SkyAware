@@ -11,43 +11,80 @@ steps:
 
   # Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/tempo-pipeline:$COMMIT_SHA', '.']
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/tempo-pipeline:v1', '.']
 
   # Push the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/tempo-pipeline:$COMMIT_SHA']
+    args: ['push', 'gcr.io/$PROJECT_ID/tempo-pipeline:v1']
 
-  # Deploy to Cloud Run (pipeline)
+  # Deploy API endpoint to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - 'tempo-pipeline'
+      - 'tempo-api'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/tempo-pipeline:$COMMIT_SHA'
+      - 'gcr.io/$PROJECT_ID/tempo-pipeline:v1'
       - '--region'
       - 'us-central1'
       - '--allow-unauthenticated'
-      - '--set-env-vars'
-      - 'EARTHDATA_USERNAME=$(cat /workspace/earthdata_username.txt),EARTHDATA_PASSWORD=$(cat /workspace/earthdata_password.txt),DB_HOST=${_DB_HOST},DB_PORT=${_DB_PORT},DB_USER=${_DB_USER},DB_PASS=$(cat /workspace/db_password.txt),DB_NAME=${_DB_NAME},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT}'
-
-  # Deploy endpoint to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'tempo-endpoint'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/tempo-pipeline:$COMMIT_SHA'
-      - '--region'
-      - 'us-central1'
-      - '--allow-unauthenticated'
-      - '--set-env-vars'
-      - 'DB_HOST=${_DB_HOST},DB_PORT=${_DB_PORT},DB_USER=${_DB_USER},DB_PASS=$(cat /workspace/db_password.txt),DB_NAME=${_DB_NAME},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT}'
       - '--command'
-      - 'gunicorn'
-      - '--bind'
-      - ':8080'
-      - 'endpoint:app'
+      - './start.sh'
+      - '--set-env-vars'
+      - 'DB_HOST=${_DB_HOST},DB_PORT=${_DB_PORT},DB_USER=${_DB_USER},DB_PASS=Tempo_P@ss2443,DB_NAME=${_DB_NAME},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT}'
+
+  # Delete existing job if it exists (ignore errors)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud run jobs delete tempo-pipeline-job --region=us-central1 --quiet || echo "Job tempo-pipeline-job does not exist, continuing..."
+
+  # Create Cloud Run job for pipeline execution
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'jobs'
+      - 'create'
+      - 'tempo-pipeline-job'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/tempo-pipeline:v1'
+      - '--region'
+      - 'us-central1'
+      - '--memory'
+      - '4Gi'
+      - '--set-env-vars'
+      - 'DB_HOST=${_DB_HOST},DB_PORT=${_DB_PORT},DB_USER=${_DB_USER},DB_PASS=Tempo_P@ss2443,DB_NAME=${_DB_NAME},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT},RUN_PIPELINE=true'
+      - '--command'
+      - './start.sh'
+
+  # Delete existing scheduler job if it exists (ignore errors)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud scheduler jobs delete tempo-hourly-pipeline --location=us-central1 --quiet || echo "Scheduler job tempo-hourly-pipeline does not exist, continuing..."
+
+  # Create Cloud Scheduler job for hourly pipeline execution
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'scheduler'
+      - 'jobs'
+      - 'create'
+      - 'http'
+      - 'tempo-hourly-pipeline'
+      - '--schedule'
+      - '0 * * * *'
+      - '--uri'
+      - 'https://us-central1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/$PROJECT_ID/jobs/tempo-pipeline-job:run'
+      - '--http-method'
+      - 'POST'
+      - '--oauth-service-account-email'
+      - '336045066613-compute@developer.gserviceaccount.com'
+      - '--location'
+      - 'us-central1'
