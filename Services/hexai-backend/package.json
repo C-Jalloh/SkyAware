@@ -1,0 +1,26 @@
+{
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.17.1",
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.12.2",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.0",
+    "morgan": "^1.10.1",
+    "node-cache": "^5.1.2",
+    "nodemon": "^3.1.10",
+    "web-push": "^3.6.7",
+    "zod": "^4.1.11"
+  },
+  "packageManager": "yarn@1.22.19+sha512.ff4579ab459bb25aa7c0ff75b62acebe576f6084b36aa842971cf250a5d8c6cd3bc9420b22ce63c7f93a0857bc6ef29291db39c3e7a23aab5adfd5a4dd6c5d71"
+}

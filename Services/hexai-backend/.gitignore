@@ -1,0 +1,30 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Logs
+logs/
+*.log
+# dotenv environment files
+.env
+.env.*
+# OS generated files
+.DS_Store
+Thumbs.db
+# Editor folders/files
+.idea/
+.vscode/
+*.swp
+# Build outputs
+dist/
+build/
+# Coverage reports
+coverage/
+# Temporary files
+tmp/
+temp/
+# Docker
+*.local
+# Misc
+*.tgz
