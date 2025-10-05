@@ -84,14 +84,15 @@ def get_latest_aqi():
     except Exception as e:
         print(f"⚠️  Redis cache miss or error: {e}")
 
-    # Fallback to DB (slower)
-    print("⚠️  Falling back to database (SLOW)")
+    # Fallback to DB (slower but optimized)
+    print("⚠️  Falling back to database (cache unavailable)")
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
         if lat is not None and lon is not None:
             # Query for location-specific data within radius
+            # Use LIMIT to reduce data transfer
             cursor.execute("""
                 SELECT data FROM tempo_aqi
                 ORDER BY timestamp DESC
@@ -103,34 +104,52 @@ def get_latest_aqi():
             conn.close()
 
             if results:
-                # Find the closest location within radius across all recent data
-                closest_data = None
-                min_distance = float('inf')
+                # Limit processing to avoid timeout - sample data for performance
+                print(f"Processing database query (sampling for performance)...")
+                closest_points = []
+                processed = 0
+                max_process = 5000  # Only process first 5000 points to avoid timeout
 
                 for result in results:
                     data_array = result[0]
                     if isinstance(data_array, list):
-                        for data in data_array:
+                        # Sample the array - take every Nth point to stay within limit
+                        sample_rate = max(1, len(data_array) // max_process)
+                        
+                        for i, data in enumerate(data_array):
+                            if i % sample_rate != 0:
+                                continue
+                                
+                            if processed >= max_process:
+                                break
+                                
                             if 'latitude' in data and 'longitude' in data:
                                 try:
                                     data_lat = float(data['latitude'])
                                     data_lon = float(data['longitude'])
                                     distance = haversine_distance(lat, lon, data_lat, data_lon)
 
-                                    if distance <= radius and distance < min_distance:
-                                        min_distance = distance
-                                        closest_data = data.copy()
-                                        closest_data['distance_km'] = round(min_distance, 2)
+                                    if distance <= radius:
+                                        point = data.copy()
+                                        point['distance_km'] = round(distance, 2)
+                                        closest_points.append(point)
+                                    
+                                    processed += 1
                                 except (ValueError, TypeError):
                                     continue
 
-                if closest_data:
+                if closest_points:
+                    # Sort by distance and return closest
+                    closest_points.sort(key=lambda x: x['distance_km'])
                     return jsonify({
                         'source': 'database',
-                        'data': closest_data
+                        'sampled': True,
+                        'processed_points': processed,
+                        'matches': len(closest_points),
+                        'data': closest_points[:limit]
                     })
                 else:
-                    return jsonify({"error": f"No data found within {radius}km of specified location"}), 404
+                    return jsonify({"error": f"No data found within {radius}km of specified location (sampled {processed} points)"}), 404
             else:
                 return jsonify({"error": "No location data available"}), 404
         else:

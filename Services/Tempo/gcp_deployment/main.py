@@ -417,13 +417,24 @@ def cache_latest_aqi_data(data_points, timestamp):
     """Cache the latest AQI data in Redis for fast API access"""
     try:
         import redis
+        redis_host = os.getenv("REDIS_HOST")
+        redis_port = int(os.getenv("REDIS_PORT", 6379))
+        redis_pass = os.getenv("REDIS_PASSWORD")
+        
+        print(f"Attempting Redis connection to {redis_host}:{redis_port}")
+        
         redis_client = redis.Redis(
-            host=os.getenv("REDIS_HOST"),
-            port=int(os.getenv("REDIS_PORT", 6379)),
-            password=os.getenv("REDIS_PASSWORD"),
-            socket_connect_timeout=5,
-            socket_timeout=5
+            host=redis_host,
+            port=redis_port,
+            password=redis_pass if redis_pass else None,
+            socket_connect_timeout=10,
+            socket_timeout=10,
+            decode_responses=False
         )
+        
+        # Test connection
+        redis_client.ping()
+        print("✅ Redis connection successful!")
         
         # Create a simplified cache structure for fast access
         cache_data = {
