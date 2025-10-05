@@ -99,33 +99,33 @@ def extract_key_tempo_data(datatree, region_filter=None):
         lon_indices = np.where(lon_mask)[0]
         
         if len(lat_indices) > 0 and len(lon_indices) > 0:
-            # Slice data to region
+            # Slice data to region - TEMPO uses 'latitude' and 'longitude' as dimension names
             no2_concentration = no2_concentration.isel(
-                lat=slice(lat_indices[0], lat_indices[-1] + 1),
-                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+                latitude=slice(lat_indices[0], lat_indices[-1] + 1),
+                longitude=slice(lon_indices[0], lon_indices[-1] + 1)
             )
             quality_flag = quality_flag.isel(
-                lat=slice(lat_indices[0], lat_indices[-1] + 1),
-                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+                latitude=slice(lat_indices[0], lat_indices[-1] + 1),
+                longitude=slice(lon_indices[0], lon_indices[-1] + 1)
             )
             uncertainty = uncertainty.isel(
-                lat=slice(lat_indices[0], lat_indices[-1] + 1),
-                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+                latitude=slice(lat_indices[0], lat_indices[-1] + 1),
+                longitude=slice(lon_indices[0], lon_indices[-1] + 1)
             )
             surface_pressure = surface_pressure.isel(
-                lat=slice(lat_indices[0], lat_indices[-1] + 1),
-                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+                latitude=slice(lat_indices[0], lat_indices[-1] + 1),
+                longitude=slice(lon_indices[0], lon_indices[-1] + 1)
             )
             terrain_height = terrain_height.isel(
-                lat=slice(lat_indices[0], lat_indices[-1] + 1),
-                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+                latitude=slice(lat_indices[0], lat_indices[-1] + 1),
+                longitude=slice(lon_indices[0], lon_indices[-1] + 1)
             )
             pbl_height = pbl_height.isel(
-                lat=slice(lat_indices[0], lat_indices[-1] + 1),
-                lon=slice(lon_indices[0], lon_indices[-1] + 1)
+                latitude=slice(lat_indices[0], lat_indices[-1] + 1),
+                longitude=slice(lon_indices[0], lon_indices[-1] + 1)
             )
-            latitude = latitude.isel(lat=slice(lat_indices[0], lat_indices[-1] + 1))
-            longitude = longitude.isel(lon=slice(lon_indices[0], lon_indices[-1] + 1))
+            latitude = latitude.isel(latitude=slice(lat_indices[0], lat_indices[-1] + 1))
+            longitude = longitude.isel(longitude=slice(lon_indices[0], lon_indices[-1] + 1))
             
             print(f"✅ Filtered to {len(latitude)} x {len(longitude)} grid points")
         else:
