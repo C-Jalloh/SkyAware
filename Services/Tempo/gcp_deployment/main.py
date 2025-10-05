@@ -273,9 +273,12 @@ def create_geojson_from_tempo(key_data, aqi_grid, chunk_size=1000):
     features_added = 0
     chunk_count = 0
 
+    # Create coordinate grids that match the data dimensions
+    lon_grid, lat_grid = np.meshgrid(lon_data.values, lat_data.values)
+
     # Flatten coordinates and data for easier chunking
-    lat_flat = lat_data.values.flatten()
-    lon_flat = lon_data.values.flatten()
+    lat_flat = lat_grid.flatten()
+    lon_flat = lon_grid.flatten()
     aqi_flat = aqi_grid.flatten()
     valid_flat = valid_mask.flatten()
 
