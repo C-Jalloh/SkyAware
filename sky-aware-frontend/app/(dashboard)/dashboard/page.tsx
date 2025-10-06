@@ -28,9 +28,11 @@ import DashboardSkeleton from '@/components/loading-dashboard';
 import MapboxView from '@/components/map-box';
 import SearchBox from '@/components/search-box';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useFetchCategories } from '@/hooks/use-category';
 import { useFetchCurrentAqi } from '@/hooks/use-current-aqi';
 import { useDebounce } from '@/hooks/use-debounce';
+import { useFetchForecast } from '@/hooks/use-forecast';
 import { DUMMY_AQI_DATA, getAQIColor, getHealthAdvice } from '@/mocks';
 import {
   type ForecastRequest,
@@ -43,6 +45,7 @@ import {
   getHealthAdvice as getHealthAdviceAPI,
 } from '@/services/health-advice';
 import { getMapGeocoding } from '@/services/map';
+import { getCategoryDescription } from '@/utils/helpers';
 
 const mapBoxApiKey =
   process.env.NEXT_MAPBOX_API_KEY ??
@@ -135,16 +138,6 @@ const HomePage = () => {
     healthAdviceMutation.mutate(aqiData);
   };
 
-  const handleGetForecast = () => {
-    const forecastParams: ForecastRequest = {
-      lat: data?.tempo.area_summary.center_coordinates.latitude,
-      lon: data?.tempo.area_summary.center_coordinates.longitude,
-    };
-
-    console.log('Forecast params being sent:', forecastParams);
-    forecastMutation.mutate(forecastParams);
-  };
-
   useEffect(() => {
     if (!mapContainer.current) return;
 
@@ -189,14 +182,44 @@ const HomePage = () => {
     limit: 10,
   });
 
+  const {
+    data: forecastResponse,
+    isFetching: isFetchingForecast,
+    error: forecastError,
+  } = useFetchForecast({
+    lat: data
+      ? data?.tempo.area_summary.center_coordinates.latitude
+      : undefined,
+    lon: data
+      ? data?.tempo.area_summary.center_coordinates.longitude
+      : undefined,
+  });
+
   if (isAqiFetching) {
     return <DashboardSkeleton />;
   }
+
   if (aqiError) {
     return (
       <ErrorComponent message={aqiError?.message} onRefresh={refetchAqi} />
     );
   }
+
+  if (!data) {
+    return (
+      <ErrorComponent message='No data available' onRefresh={refetchAqi} />
+    );
+  }
+
+  const handleGetForecast = () => {
+    const forecastParams: ForecastRequest = {
+      lat: data?.tempo.area_summary.center_coordinates.latitude,
+      lon: data?.tempo.area_summary.center_coordinates.longitude,
+    };
+
+    console.log('Forecast params being sent:', forecastParams);
+    forecastMutation.mutate(forecastParams);
+  };
 
   const handleLocationSelect = (location: any) => {
     setSelectedLocation(location ?? results?.[0]?.geometry?.center);
@@ -221,7 +244,7 @@ const HomePage = () => {
         ? location.aqi + 5
         : data?.tempo.area_summary.max_aqi,
       category: location?.category ?? data?.local_station.category,
-      color: location?.color ?? getAQIColor(data?.local_station.aqi!),
+      color: location?.color ?? getAQIColor(data?.local_station.aqi),
     });
   };
 
@@ -322,10 +345,41 @@ const HomePage = () => {
           onClick={handleUseMyLocation}
         />
 
-        <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-slate-700/50 shadow-2xl'>
-          <div className='flex items-start justify-between mb-6'>
+        <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 mb-6 border border-slate-700/50 shadow-2xl'>
+          <div className='flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4'>
+            <h2 className='text-lg sm:text-xl font-semibold flex items-center gap-2'>
+              <Layers className='w-5 h-5 sm:w-6 sm:h-6 text-blue-400' />
+              Interactive Air Quality Map
+            </h2>
+            <div className='flex items-center gap-2 text-xs text-gray-400 bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700'>
+              <div className='w-3 h-3 rounded-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-600' />
+              <span>TEMPO Satellite Overlay</span>
+            </div>
+          </div>
+          <div
+            className='rounded-xl overflow-hidden border-2 border-slate-700/70 shadow-2xl'
+            style={{ height: '400px' }}
+          >
+            <MapboxView
+              locations={data?.tempo.data_points ?? []}
+              onLocationSelect={handleLocationSelect}
+              selectedLocation={selectedLocation}
+            />
+          </div>
+          <div className='mt-4 flex items-start gap-2 text-sm text-gray-400 bg-slate-900/30 p-3 rounded-lg border border-slate-700/50'>
+            <Info className='w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5' />
+            <span>
+              Click on any location marker to view detailed AQI information. The
+              heatmap overlay represents NASA TEMPO satellite measurements
+              showing pollution distribution across the region.
+            </span>
+          </div>
+        </div>
+
+        <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 mb-6 border border-slate-700/50 shadow-2xl'>
+          <div className='flex flex-col sm:flex-row sm:items-start justify-between mb-6 gap-4'>
             <div>
-              <h2 className='text-xl font-semibold text-gray-300 mb-2'>
+              <h2 className='text-lg sm:text-xl font-semibold text-gray-300 mb-2'>
                 Current Air Quality
               </h2>
               <div className='flex items-center gap-2 text-sm text-gray-400'>
@@ -333,28 +387,32 @@ const HomePage = () => {
                 <span className='font-medium'>{data?.local_station.city}</span>
               </div>
             </div>
-            <div className='text-xs text-gray-500 text-right flex flex-col gap-2'>
+            <div className='text-xs text-gray-500 flex flex-col gap-3 sm:text-right'>
               <div className='font-medium'>
-                <LastUpdated lastUpdated={data?.local_station.timestamp!} />
+                <LastUpdated lastUpdated={data?.local_station.timestamp} />
               </div>
-              <div className='flex gap-2'>
+              <div className='flex flex-col md:flex-row gap-2'>
                 <Button
                   onClick={handleGetHealthAdvice}
                   disabled={healthAdviceMutation.isPending}
-                  className='bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all transform hover:scale-105 shadow-lg'
+                  className='bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all transform hover:scale-105 shadow-lg min-h-[40px] w-full sm:w-auto'
                 >
-                  <Heart className='w-3 h-3' />
-                  {healthAdviceMutation.isPending
-                    ? 'Loading...'
-                    : 'Health Advice'}
+                  <Heart className='w-3 h-3 sm:w-4 sm:h-4' />
+                  <span className='whitespace-nowrap'>
+                    {healthAdviceMutation.isPending
+                      ? 'Loading...'
+                      : 'Health Advice'}
+                  </span>
                 </Button>
                 <Button
                   onClick={handleGetForecast}
                   disabled={forecastMutation.isPending}
-                  className='bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all transform hover:scale-105 shadow-lg'
+                  className='bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all transform hover:scale-105 shadow-lg min-h-[40px] w-full sm:w-auto'
                 >
-                  <Calendar className='w-3 h-3' />
-                  {forecastMutation.isPending ? 'Loading...' : 'Get Forecast'}
+                  <Calendar className='w-3 h-3 sm:w-4 sm:h-4' />
+                  <span className='whitespace-nowrap'>
+                    {forecastMutation.isPending ? 'Loading...' : 'Get Forecast'}
+                  </span>
                 </Button>
               </div>
             </div>
@@ -363,16 +421,16 @@ const HomePage = () => {
           <div className='grid md:grid-cols-3 gap-6'>
             <div className='flex items-center justify-center'>
               <div
-                className='w-40 h-40 rounded-3xl flex flex-col items-center justify-center font-bold border-4 shadow-2xl relative overflow-hidden'
+                className='w-32 h-32 sm:w-40 sm:h-40 rounded-3xl flex flex-col items-center justify-center font-bold border-4 shadow-2xl relative overflow-hidden'
                 style={{
-                  backgroundColor: `${getAQIColor(data?.local_station.aqi!)}20`,
-                  borderColor: getAQIColor(data?.local_station.aqi!),
+                  backgroundColor: `${getAQIColor(data?.local_station.aqi)}20`,
+                  borderColor: getAQIColor(data?.local_station.aqi),
                 }}
               >
                 <div className='absolute inset-0 bg-gradient-to-br from-transparent to-black/20' />
                 <div
-                  className='text-6xl mb-2 relative z-10'
-                  style={{ color: getAQIColor(data?.local_station.aqi!) }}
+                  className='text-4xl sm:text-6xl mb-2 relative z-10'
+                  style={{ color: getAQIColor(data?.local_station.aqi) }}
                 >
                   {data?.local_station.aqi ?? 'N/A'}
                 </div>
@@ -389,8 +447,8 @@ const HomePage = () => {
                   Air Quality
                 </div>
                 <div
-                  className='text-3xl font-bold'
-                  style={{ color: getAQIColor(data?.local_station.aqi!) }}
+                  className='text-2xl sm:text-3xl font-bold'
+                  style={{ color: getAQIColor(data?.local_station.aqi) }}
                 >
                   {data?.local_station.category ?? 'Unknown'}
                 </div>
@@ -400,8 +458,8 @@ const HomePage = () => {
                   Primary Pollutant
                 </div>
                 <div className='flex items-center gap-2'>
-                  <Wind className='w-6 h-6 text-blue-400' />
-                  <span className='text-xl font-semibold'>
+                  <Wind className='w-5 h-5 sm:w-6 sm:h-6 text-blue-400' />
+                  <span className='text-lg sm:text-xl font-semibold'>
                     {data?.local_station.pollutant}
                   </span>
                 </div>
@@ -411,20 +469,20 @@ const HomePage = () => {
             <div className='flex flex-col justify-center'>
               <div className='bg-gradient-to-br from-blue-900/40 to-slate-800/40 border border-blue-700/50 rounded-xl p-4 shadow-lg'>
                 <div className='flex items-start gap-3'>
-                  <AlertTriangle className='w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5' />
+                  <AlertTriangle className='w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 flex-shrink-0 mt-0.5' />
                   <div>
                     <div className='font-semibold mb-2 text-blue-300'>
                       Health Advice
                     </div>
                     <div className='text-sm text-gray-300 leading-relaxed'>
-                      {getHealthAdvice(data?.local_station.aqi!)}
+                      {getHealthAdvice(data?.local_station.aqi)}
                     </div>
                     <Button
                       onClick={handleGetHealthAdvice}
                       disabled={healthAdviceMutation.isPending}
                       variant='outline'
                       size='sm'
-                      className='mt-3 text-xs border-blue-500/30 text-blue-300 hover:bg-blue-900/20'
+                      className='mt-3 text-xs border-blue-500/30 text-blue-300 hover:bg-blue-900/20 w-full sm:w-auto'
                     >
                       <Heart className='w-3 h-3 mr-1' />
                       Get Detailed Advice
@@ -441,12 +499,12 @@ const HomePage = () => {
                 <CheckCircle className='w-5 h-5 text-green-400' />
                 <h3 className='font-semibold text-gray-300'>Data Validation</h3>
               </div>
-              <div className='grid grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                 <div className='bg-slate-800/50 rounded-lg p-3 border border-blue-500/30'>
                   <div className='text-xs text-gray-400 mb-1'>
                     Ground Station (EPA)
                   </div>
-                  <div className='text-2xl font-bold text-blue-400'>
+                  <div className='text-xl sm:text-2xl font-bold text-blue-400'>
                     {data?.local_station.aqi ?? 'N/A'}
                   </div>
                 </div>
@@ -454,7 +512,7 @@ const HomePage = () => {
                   <div className='text-xs text-gray-400 mb-1'>
                     Satellite (TEMPO)
                   </div>
-                  <div className='text-2xl font-bold text-purple-400'>
+                  <div className='text-xl sm:text-2xl font-bold text-purple-400'>
                     {data?.tempo.area_summary
                       ? data?.tempo.area_summary.max_aqi
                       : 'N/A'}
@@ -470,7 +528,7 @@ const HomePage = () => {
           </div>
         </div>
 
-        <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 mb-6 border border-slate-700/50 shadow-xl'>
+        <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-4 sm:p-5 mb-6 border border-slate-700/50 shadow-xl'>
           <div className='flex items-center gap-2 mb-4'>
             <Layers className='w-5 h-5 text-blue-400' />
             <h3 className='font-semibold text-gray-300'>AQI Scale Reference</h3>
@@ -510,86 +568,67 @@ const HomePage = () => {
           )}
         </div>
 
-        <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-slate-700/50 shadow-2xl'>
-          <div className='flex items-center justify-between mb-5'>
-            <h2 className='text-xl font-semibold flex items-center gap-2'>
-              <Layers className='w-6 h-6 text-blue-400' />
-              Interactive Air Quality Map
-            </h2>
-            <div className='flex items-center gap-2 text-xs text-gray-400 bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700'>
-              <div className='w-3 h-3 rounded-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-600' />
-              <span>TEMPO Satellite Overlay</span>
-            </div>
-          </div>
-          <div
-            className='rounded-xl overflow-hidden border-2 border-slate-700/70 shadow-2xl'
-            style={{ height: '600px' }}
-          >
-            <MapboxView
-              locations={data?.tempo.data_points ?? []}
-              onLocationSelect={handleLocationSelect}
-              selectedLocation={selectedLocation}
-            />
-          </div>
-          <div className='mt-4 flex items-start gap-2 text-sm text-gray-400 bg-slate-900/30 p-3 rounded-lg border border-slate-700/50'>
-            <Info className='w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5' />
-            <span>
-              Click on any location marker to view detailed AQI information. The
-              heatmap overlay represents NASA TEMPO satellite measurements
-              showing pollution distribution across the region.
-            </span>
-          </div>
-        </div>
-
-        <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50 shadow-2xl'>
-          <div className='flex items-center justify-between mb-5'>
-            <h2 className='text-xl font-semibold flex items-center gap-2'>
-              <Calendar className='w-6 h-6 text-blue-400' />
+        <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-slate-700/50 shadow-2xl'>
+          <div className='flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4'>
+            <h2 className='text-lg sm:text-xl font-semibold flex items-center gap-2'>
+              <Calendar className='w-5 h-5 sm:w-6 sm:h-6 text-blue-400' />
               72-Hour Air Quality Forecast
             </h2>
             <Button
               onClick={handleGetForecast}
               disabled={forecastMutation.isPending}
-              className='bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white text-sm px-4 py-2 rounded-lg flex items-center gap-2 transition-all transform hover:scale-105 shadow-lg'
+              className='bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white text-sm px-4 py-2 rounded-lg flex items-center gap-2 transition-all transform hover:scale-105 shadow-lg w-full sm:w-auto justify-center'
             >
               <TrendingUp className='w-4 h-4' />
               {forecastMutation.isPending ? 'Generating...' : 'Get AI Forecast'}
             </Button>
           </div>
-          <div className='grid md:grid-cols-3 gap-5'>
-            {forecast.map((day, i) => (
-              <div
-                key={i}
-                className='bg-gradient-to-br from-slate-700/40 to-slate-800/40 rounded-xl p-5 border border-slate-600/50 hover:border-slate-500 transition-all shadow-lg hover:shadow-xl'
-              >
-                <LastUpdated lastUpdated={day.date} />
-                <div className='flex items-center gap-4 mb-4'>
-                  <div
-                    className='text-5xl font-bold'
-                    style={{ color: getAQIColor(day.aqi_max) }}
-                  >
-                    {day.aqi_max}
-                  </div>
-                  <div className='flex-1'>
-                    <div
-                      className='text-sm font-semibold mb-1'
-                      style={{ color: getAQIColor(day.aqi_max) }}
-                    >
-                      {day.category}
-                    </div>
-                    <div
-                      className='h-2 rounded-full'
-                      style={{ backgroundColor: getAQIColor(day.aqi_max) }}
-                    />
-                  </div>
-                </div>
-                <div className='bg-slate-900/50 rounded-lg p-3 border border-slate-700/50'>
-                  <div className='text-xs text-gray-300 leading-relaxed'>
-                    {day.health_advice}
-                  </div>
-                </div>
+          <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5'>
+            {isFetchingForecast ? (
+              <>
+                <Skeleton className='h-48 w-52 rounded-xl' />
+                <Skeleton className='h-48 w-52 rounded-xl' />
+                <Skeleton className='h-48 w-52 rounded-xl' />
+              </>
+            ) : forecastError ? (
+              <div className='w-full flex justify-center items-center'>
+                <p className='text-red-400'>Error loading forecast</p>
               </div>
-            ))}
+            ) : (
+              forecastResponse?.forecast.map((day, i) => (
+                <div
+                  key={i}
+                  className='bg-gradient-to-br from-slate-700/40 to-slate-800/40 rounded-xl p-5 border border-slate-600/50 hover:border-slate-500 transition-all shadow-lg hover:shadow-xl'
+                >
+                  <LastUpdated lastUpdated={day.date} />
+                  <div className='flex items-center gap-4 mb-4'>
+                    <div
+                      className='text-4xl sm:text-5xl font-bold'
+                      style={{ color: getAQIColor(day.aqi) }}
+                    >
+                      {day.aqi}
+                    </div>
+                    <div className='flex-1'>
+                      <div
+                        className='text-sm font-semibold mb-1'
+                        style={{ color: getAQIColor(day.aqi) }}
+                      >
+                        {day.category}
+                      </div>
+                      <div
+                        className='h-2 rounded-full'
+                        style={{ backgroundColor: getAQIColor(day.aqi) }}
+                      />
+                    </div>
+                  </div>
+                  <div className='bg-slate-900/50 rounded-lg p-3 border border-slate-700/50'>
+                    <div className='text-xs text-gray-300 leading-relaxed'>
+                      {getCategoryDescription(day.category)}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

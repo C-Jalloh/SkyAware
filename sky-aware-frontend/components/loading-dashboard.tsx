@@ -8,6 +8,18 @@ const DashboardSkeleton = () => {
         <Skeleton className='h-12 w-full rounded-xl bg-slate-700/50' />
       </div>
 
+      {/* Map Skeleton */}
+      <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-slate-700/50'>
+        <div className='flex items-center justify-between mb-5'>
+          <Skeleton className='h-7 w-64 bg-slate-700/50' />
+          <Skeleton className='h-8 w-48 rounded-lg bg-slate-700/50' />
+        </div>
+        <Skeleton className='w-full h-[600px] rounded-xl bg-slate-700/50' />
+        <div className='mt-4'>
+          <Skeleton className='h-16 w-full rounded-lg bg-slate-700/50' />
+        </div>
+      </div>
+
       {/* Current Air Quality Card Skeleton */}
       <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-slate-700/50'>
         <div className='flex items-start justify-between mb-6'>
@@ -83,18 +95,6 @@ const DashboardSkeleton = () => {
               <Skeleton className='h-3 w-16 mx-auto bg-slate-700/50' />
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Map Skeleton */}
-      <div className='bg-slate-800/60 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-slate-700/50'>
-        <div className='flex items-center justify-between mb-5'>
-          <Skeleton className='h-7 w-64 bg-slate-700/50' />
-          <Skeleton className='h-8 w-48 rounded-lg bg-slate-700/50' />
-        </div>
-        <Skeleton className='w-full h-[600px] rounded-xl bg-slate-700/50' />
-        <div className='mt-4'>
-          <Skeleton className='h-16 w-full rounded-lg bg-slate-700/50' />
         </div>
       </div>
 

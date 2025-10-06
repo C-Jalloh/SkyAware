@@ -40,7 +40,7 @@ export const getCurrentAqi = async (
 
     return await res.data;
   } catch (error: any) {
-    console.error('Error fetching geocoding data:', JSON.stringify(error));
+    console.error('Error fetching geocoding data:', error.message);
     throw Error('Failed to fetch geocoding data ', error.message);
   }
 };

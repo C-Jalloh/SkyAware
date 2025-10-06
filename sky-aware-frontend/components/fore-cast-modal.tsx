@@ -32,6 +32,7 @@ const ForecastModal = ({
   location,
 }: ForecastModalProps) => {
   if (!isOpen) return null;
+  console.log('forecast>>>', forecast);
 
   // Helper function to get day name from date
   const getDayName = (dateString: string) => {
@@ -74,7 +75,7 @@ const ForecastModal = ({
             <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4' />
             <p className='text-gray-300'>Generating AI-powered forecast...</p>
           </div>
-        ) : forecast ? (
+        ) : forecast?.success ? (
           <div className='space-y-6'>
             {/* Location & Timestamp */}
             <div className='bg-slate-900/50 rounded-xl p-4 border border-slate-600'>
@@ -246,9 +247,18 @@ const ForecastModal = ({
           </div>
         ) : (
           <div className='text-center py-8'>
-            <p className='text-gray-300'>
-              Failed to load forecast. Please try again.
-            </p>
+            <div className='bg-red-900/30 border border-red-700/50 rounded-xl p-4 mb-4'>
+              <div className='flex items-center gap-2 justify-center'>
+                <AlertTriangle className='w-5 h-5 text-red-400' />
+                <span className='text-red-300 font-medium'>
+                  Failed to load forecast
+                </span>
+              </div>
+              {forecast?.error && (
+                <p className='text-gray-300 text-sm mt-2'>{forecast.error}</p>
+              )}
+            </div>
+            <p className='text-gray-300'>Please try again.</p>
           </div>
         )}
       </div>
