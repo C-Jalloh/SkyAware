@@ -71,7 +71,7 @@ export interface HealthAdviceResponse {
 }
 
 export const getHealthAdvice = async (
-  data: HealthAdviceRequest
+  data: HealthAdviceRequest,
 ): Promise<HealthAdviceResponse> => {
   try {
     const res = await axios.post(`${BASE_URL}/health/advice`, data, {
@@ -83,6 +83,6 @@ export const getHealthAdvice = async (
     return res.data;
   } catch (error: any) {
     console.error('Error fetching health advice:', error);
-    throw new Error('Failed to fetch health advice: ' + error.message);
+    throw new Error(`Failed to fetch health advice: ${error.message}`);
   }
 };

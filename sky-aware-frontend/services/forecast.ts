@@ -20,6 +20,7 @@ export interface ForecastResponse {
   };
   forecast: ForecastDay[];
   generated_at: string;
+  model_version: any;
   user: {
     authenticated: boolean;
     name?: string;
@@ -32,16 +33,19 @@ export interface ForecastRequest {
   no2_value?: number;
 }
 
-export const getForecast = async (params?: ForecastRequest): Promise<ForecastResponse> => {
+export const getForecast = async (
+  params?: ForecastRequest,
+): Promise<ForecastResponse> => {
   try {
     const queryParams = new URLSearchParams();
-    
+
     if (params?.lat) queryParams.append('lat', params.lat.toString());
     if (params?.lon) queryParams.append('lon', params.lon.toString());
-    if (params?.no2_value) queryParams.append('no2_value', params.no2_value.toString());
+    if (params?.no2_value)
+      queryParams.append('no2_value', params.no2_value.toString());
 
-    const url = `${BASE_URL}/forecast${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    
+    const url = `${BASE_URL}/forecast${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
     const res = await axios.get(url, {
       headers: {
         'Content-Type': 'application/json',
@@ -51,6 +55,6 @@ export const getForecast = async (params?: ForecastRequest): Promise<ForecastRes
     return res.data;
   } catch (error: any) {
     console.error('Error fetching forecast data:', error);
-    throw new Error('Failed to fetch forecast data: ' + error.message);
+    throw new Error(`Failed to fetch forecast data: ${error.message}`);
   }
 };

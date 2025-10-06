@@ -50,7 +50,7 @@ const mapBoxApiKey =
 
 const HomePage = () => {
   const [selectedLocation, setSelectedLocation] = useState(null);
-  const [currentData, setCurrentData] = useState(DUMMY_AQI_DATA.current);
+  const [currentData, setCurrentData] = useState<any>(null);
   const [forecast] = useState(DUMMY_AQI_DATA.forecast);
   const [showApiKeyWarning, setShowApiKeyWarning] = useState(
     mapBoxApiKey ? false : true,
@@ -206,16 +206,22 @@ const HomePage = () => {
       location?.name ?? location?.place_name ?? 'Unknown Location';
 
     setCurrentData({
-      ...currentData,
+      ...data?.tempo.area_summary,
       location: locationName,
-      lat: location?.lat ?? location?.center?.[1] ?? currentData.lat,
-      lon: location?.lon ?? location?.center?.[0] ?? currentData.lon,
-      current_aqi_epa: location?.aqi ?? currentData.current_aqi_epa,
+      lat:
+        location?.lat ??
+        location?.center?.[1] ??
+        data?.tempo.area_summary.center_coordinates.latitude,
+      lon:
+        location?.lon ??
+        location?.center?.[0] ??
+        data?.tempo.area_summary.center_coordinates.longitude,
+      current_aqi_epa: location?.aqi ?? data?.local_station.aqi,
       current_aqi_tempo_derived: location?.aqi
         ? location.aqi + 5
-        : currentData.current_aqi_tempo_derived,
-      category: location?.category ?? currentData.category,
-      color: location?.color ?? currentData.color,
+        : data?.tempo.area_summary.max_aqi,
+      category: location?.category ?? data?.local_station.category,
+      color: location?.color ?? getAQIColor(data?.local_station.aqi!),
     });
   };
 
